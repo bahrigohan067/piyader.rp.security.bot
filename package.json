@@ -1,0 +1,24 @@
+{
+  "name": "piyader-rp-security-bot",
+  "version": "1.0.0",
+  "description": "Piyader RP High-Grade Professional Discord Security and Guard Bot",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "keywords": [
+    "discord",
+    "security",
+    "guard",
+    "anti-nuke",
+    "anti-raid",
+    "roleplay"
+  ],
+  "author": "Piyader RP",
+  "license": "ISC",
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5"
+  }
+}
