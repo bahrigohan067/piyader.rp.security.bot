@@ -3,6 +3,7 @@ const { isWhitelisted } = require('../utils/whitelist');
 const { getLatestAuditLog } = require('../utils/audit');
 const { punishUser } = require('../utils/punisher');
 const { sendSecurityLog } = require('../utils/logger');
+const { safeExecute } = require('../utils/safeExecute');
 const config = require('../../config');
 
 /**
@@ -23,15 +24,17 @@ module.exports = function memberGuard(client) {
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz ban atıldı: ${ban.user.tag} by ${executor.tag}`);
 
-    // Banlayan kişiyi cezalandır (Banla)
-    await punishUser(guild, executor, `Yetkisiz üye banlama: ${ban.user.tag}`, { ban: true });
+    // Banlayan kişiyi cezalandır & Hafızaya Yaz
+    await punishUser(guild, executor, `Yetkisiz üye banlama: ${ban.user.tag}`, {
+      ban: true,
+      eventType: 'UNAUTHORIZED_BAN'
+    });
 
-    // Haksız banlanan üyenin banını aç
-    try {
-      await guild.bans.remove(ban.user.id, '[Piyader RP Güvenlik] Haksız ban otomatik kaldırıldı');
-    } catch (err) {
-      console.error('[Ban Kaldırma Hatası]', err.message);
-    }
+    // Haksız banlanan üyenin banını güvenle aç
+    await safeExecute(
+      () => guild.bans.remove(ban.user.id, '[Piyader RP Güvenlik] Haksız ban otomatik kaldırıldı'),
+      `Unban Victim (${ban.user.id})`
+    );
 
     await sendSecurityLog(guild, {
       title: '🚨 YETKİSİZ BAN SALDIRISI ENGELLENDİ',
@@ -60,11 +63,14 @@ module.exports = function memberGuard(client) {
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz kick atıldı: ${member.user.tag} by ${executor.tag}`);
 
     // Kickleyen kişiyi cezalandır
-    await punishUser(guild, executor, `Yetkisiz üye atma (Kick): ${member.user.tag}`, { ban: true });
+    await punishUser(guild, executor, `Yetkisiz üye atma (Kick): ${member.user.tag}`, {
+      ban: true,
+      eventType: 'UNAUTHORIZED_KICK'
+    });
 
     await sendSecurityLog(guild, {
       title: '🚨 YETKİSİZ KICK SALDIRISI ENGELLENDİ',
-      description: `Yetkisiz bir kullanıcı sunucudan üye attı! Saldırganın yetkileri alındı / yasaklandı.`,
+      description: `Yetkisiz bir kullanıcı sunucudan üye attı! Saldırgan yasaklandı / yetkileri çekildi.`,
       severity: 'CRITICAL',
       executor: executor,
       fields: [

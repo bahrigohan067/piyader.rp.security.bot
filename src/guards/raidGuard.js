@@ -1,4 +1,6 @@
 const { sendSecurityLog } = require('../utils/logger');
+const { safeExecute } = require('../utils/safeExecute');
+const { logEvent } = require('../memory/memoryManager');
 const config = require('../../config');
 
 // Son giriş yapan üyeleri hafızada tutan dizi
@@ -10,7 +12,7 @@ let lockdownTimeout = null;
  * Anti-Raid ve Kitle Saldırısı Koruması
  * @param {import('discord.js').Client} client
  */
-module.exports = function raidGuard(client) {
+function raidGuard(client) {
   client.on('guildMemberAdd', async member => {
     if (!member.guild || (config.guildId && member.guild.id !== config.guildId)) return;
     if (member.user.bot) return; // Botları botGuard inceler
@@ -26,8 +28,20 @@ module.exports = function raidGuard(client) {
       console.warn(`[ŞÜPHELİ HESAP] Yeni açılmış hesap katıldı: ${member.user.tag} (Yaş: ${accountAgeDays} gün)`);
 
       if (config.quarantineRoleId) {
-        await member.roles.add(config.quarantineRoleId, '[Piyader RP Güvenlik] Yeni hesap karantinası').catch(() => null);
+        await safeExecute(
+          () => member.roles.add(config.quarantineRoleId, '[Piyader RP Güvenlik] Yeni hesap karantinası'),
+          `Quarantine New Account (${member.id})`
+        );
       }
+
+      logEvent({
+        eventType: 'SUSPICIOUS_NEW_ACCOUNT',
+        severity: 'WARNING',
+        executorId: member.id,
+        executorTag: member.user.tag,
+        details: `Hesap yaşı çok yeni: ${accountAgeDays} gün`,
+        actionTaken: config.quarantineRoleId ? 'Karantina Rolü Verildi' : 'Güvenlik Alarmı Gönderildi'
+      });
 
       await sendSecurityLog(guild, {
         title: '⚠️ ŞÜPHELİ YENİ HESAP TESPİT EDİLDİ',
@@ -55,6 +69,14 @@ module.exports = function raidGuard(client) {
         isLockdownActive = true;
         console.error(`[🚨 RAID TESPİT EDİLDİ!] ${config.limits.raidTimeWindowMs / 1000} saniyede ${validJoins.length} hesap girişi!`);
 
+        logEvent({
+          eventType: 'RAID_ATTACK',
+          severity: 'CRITICAL',
+          details: `Mass Join tespit edildi: ${validJoins.length} kullanıcı / ${config.limits.raidTimeWindowMs / 1000}s`,
+          actionTaken: 'Panic Mode Aktif - Gelenler Otomatik Atılıyor',
+          success: true
+        });
+
         await sendSecurityLog(guild, {
           title: '🚨 AKIN / RAID SALDIRISI BAŞLADI (PANIC MODE DEVREDE)',
           description: `Sunucuya aynı anda çok sayıda hesap girişi tespit edildi! Otomatik savunma kalkanı devreye sokuldu.`,
@@ -65,7 +87,6 @@ module.exports = function raidGuard(client) {
           ]
         });
 
-        // 60 saniye sonra lockdown'ı otomatik gevşet
         clearTimeout(lockdownTimeout);
         lockdownTimeout = setTimeout(() => {
           isLockdownActive = false;
@@ -73,8 +94,15 @@ module.exports = function raidGuard(client) {
         }, 60000);
       }
 
-      // Raid esnasında giren üyeyi sunucudan at (Kick)
-      await member.kick('[Piyader RP Güvenlik] Raid koruması kapsamında otomatik atıldı').catch(() => null);
+      // Raid esnasında giren üyeyi sunucudan güvenle at (Kick)
+      await safeExecute(
+        () => member.kick('[Piyader RP Güvenlik] Raid koruması kapsamında otomatik atıldı'),
+        `Kick Raid Member (${member.id})`
+      );
     }
   });
-};
+}
+
+raidGuard.recentJoins = recentJoins;
+
+module.exports = raidGuard;

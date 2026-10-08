@@ -1,12 +1,12 @@
-# 🛡️ Piyader RP - Yüksek Seviye Güvenlik & Guard Botu
+# 🛡️ Piyader RP - Zero-Crash Yüksek Seviye Güvenlik & Hafıza Botu
 
-Piyader RP sunucusu için özel olarak geliştirilmiş; yetkili hesap çalınmaları, nuke saldırıları, izinsiz bot/webhook girişleri, token orduları (raid) ve flood/spam tehditlerine karşı 7/24 aktif tam koruma sağlayan profesyonel güvenlik botu.
+Piyader RP sunucusu için geliştirilmiş; **sıfır-çökme (zero-crash)** mimarisine sahip, sunucudaki her olayı kalıcı hafızasında saklayan (SQLite WAL Persistent Engine), kademeli ceza ve otomatik geri yükleme yetenekli profesyonel Discord güvenlik botu.
 
 ---
 
 ## 📋 Muaf Tutulan (Whitelist) Roller
 
-Aşağıdaki roller bütün koruma ve limit kurallarından otomatik olarak muaf tutulmuştur:
+Aşağıdaki roller bütün koruma ve limit kurallarından otomatik olarak **tam muaf** tutulmuştur:
 
 | Sıra | Rol Adı | Rol ID |
 | :---: | :--- | :--- |
@@ -19,74 +19,70 @@ Aşağıdaki roller bütün koruma ve limit kurallarından otomatik olarak muaf 
 | **7** | `@\| 🤖 ER-LC PİYADELERİ \| [yan çar]` | `1547579436361060465` |
 | **10** | `@\|👤Üst Yönetim` | `1539167256246747186` |
 
-*Not: Sunucu sahibi (`guild.ownerId`), botun kendisi ve `.env` dosyasındaki `OWNER_ID` her zaman tam yetkilidir.*
+*Not: Sunucu sahibi (`guild.ownerId`), botun kendisi ve `.env` dosyasındaki `OWNER_ID` her zaman tam dokunulmazlığa sahiptir.*
 
 ---
 
-## ⚡ Aktif Koruma Modülleri
+## 🚂 Railway Üzerinde Kalıcı Veri Dosyası (Volume) Nasıl Oluşturulur?
 
-1. **Kanal Koruması (`channelGuard`)**:
-   * Yetkisiz kanal silindiğinde saldırgan yasaklanır ve kanal anında tüm izinleri/kategorisiyle geri açılır.
-   * Yetkisiz kanal oluşturulduğunda kanal anında silinir ve kullanıcı cezalandırılır.
-   * Yetkisiz kanal isim ve izin değişiklikleri otomatik eski haline döndürülür.
+Railway'de standart konteynerler geçicidir (ephemeral). Botun yeniden başlatmalarda veya güncellemelerde **hafızasını kaybetmemesi için Railway Volume** bağlanmalıdır:
 
-2. **Rol Koruması (`roleGuard`)**:
-   * Yetkisiz rol silindiğinde saldırgan yasaklanır ve rol eski rengi, izinleri ve sırasıyla otomatik geri yüklenir.
-   * Yetkisiz rol oluşturulduğunda rol derhal imha edilir.
-   * Bir role yetkisiz şekilde Yönetici (`Administrator`), Rolleri Yönet, Kanalları Yönet vb. tehlikeli izinler verildiğinde izin anında geri alınır ve yetkiyi veren cezalandırılır.
-
-3. **Üye Ban & Kick Koruması (`memberGuard`)**:
-   * Yetkisiz şekilde sunucudan üye banlayanlar anında yasaklanır ve banlanan masum üyenin yasağı geri kaldırılır.
-   * Yetkisiz kick atanların yetkileri alınır ve sunucudan uzaklaştırılır.
-
-4. **Anti-Bot Koruması (`botGuard`)**:
-   * Sunucuya izinsiz bir bot sokulduğunda, eklenen bot anında yasaklanır (Ban).
-   * Botu sunucuya sokan yetkilinin tüm rolleri alınır ve sunucudan uzaklaştırılır.
-
-5. **Webhook Koruması (`webhookGuard`)**:
-   * Kanallarda izinsiz webhook oluşturulduğunda webhook derhal imha edilir ve oluşturan cezalandırılır.
-
-6. **Sunucu Ayarları & Vanity URL Koruması (`guildGuard`)**:
-   * Sunucu adı, ikonu veya afişi izinsiz değiştirildiğinde eski haline döndürülür ve yapan kişi yasaklanır.
-
-7. **Emoji & Sticker Koruması (`emojiGuard`)**:
-   * Sunucuya ait özel RP emojileri veya çıkartmaları silinirse silen kişi cezalandırılır.
-
-8. **Anti-Raid / Akın Koruması (`raidGuard`)**:
-   * 5 saniyede 5+ hesap girişi olduğunda **Otomatik Panic Mode (Lockdown)** devreye girer; gelen hesaplar atılır.
-   * Discord açılış tarihi 3 günden yeni olan şüpheli hesaplar tespit edilip güvenlik kanalına raporlanır / karantinaya alınır.
-
-9. **Sohbet, Link ve Spam Koruması (`chatGuard`)**:
-   * İzinsiz Discord davet linkleri ve phishing bağlantıları anında silinir, atan kullanıcı 10 dakika susturulur.
-   * `@everyone`, `@here` ve toplu etiket baskınları anında engellenir.
-   * Hızlı flood/spam yapan kullanıcılar otomatik olarak timeout alır.
-
-10. **Otomatik Snapshot & Yedekleme Motoru (`backup`)**:
-    * Bot açıldığında ve her 30 dakikada bir tüm kanalları, kategorileri ve rolleri `data/backups/` dizinine yedekler.
+### Adım Adım Kurulum:
+1. **Railway Kontrol Paneline Girin:** [railway.com](https://railway.com) üzerinden projenizi ve bot servisinizi açın.
+2. **Volumes Sekmesine Gidin:** Bot servisinizin ayarlarında **Settings** veya üst sekmelerden **Volumes** bölümüne tıklayın.
+3. **Yeni Volume Ekleyin:** **"+ New Volume"** veya **"Add Volume"** butonuna basın.
+4. **Mount Path (Bağlama Yolu) Belirleyin:**
+   * Mount Path alanına tam olarak şunu yazın:
+     ```text
+     /app/data
+     ```
+5. **Environment Variables (Değişkenler) Bölümüne Ekleyin:**
+   * Servisinizin **Variables** sekmesinde şu değişkeni tanımlayın:
+     ```env
+     DATA_DIR=/app/data
+     ```
+6. **Deploy / Yeniden Başlat:** Servisiniz deploy olduğunda bot `/app/data/security_vault.db` dosyasını kalıcı SSD disk üzerinde oluşturacak ve sunucu yeniden başlasa dahi **hiçbir log, sabıka ve yedek silinmeyecektir!**
 
 ---
 
-## 🚀 Kurulum ve Başlatma
+## 🧠 Profesyonel Hafıza ve Güvenlik Mimarisi
 
-1. [.env](file:///c:/Users/pcigd/OneDrive/Belgeler/GitHub/piyader.rp.security.bot/.env) dosyasını açıp bilgilerinizi girin:
-   ```env
-   BOT_TOKEN=YOUR_BOT_TOKEN
-   GUILD_ID=YOUR_SERVER_ID
-   GİLD_İD=YOUR_SERVER_ID
-   OWNER_ID=YOUR_DISCORD_USER_ID
-   SECURITY_LOG_CHANNEL_ID=YOUR_SECURITY_LOG_CHANNEL_ID
-   ```
+1. **Olay Günlüğü (Event Journal):**
+   * Silinen her kanal, rol, ban, kick, webhook, spam ve raid denemesi zaman damgası, fail ID'si ve yapılan işlemle kalıcı SQLite veritabanına kaydedilir.
+2. **Sabıka Kütüğü (Offender Profiler):**
+   * Her kullanıcının ihlal geçmişi hafızada tutulur.
+   * **Kademeli Ceza Sistemi:**
+     * **1. İhlal (Strike 1):** 15 dakika Timeout (Susturma) & İhtar.
+     * **2. İhlal (Strike 2):** Tüm rolleri çekme, karantinaya alma ve 24 saat Timeout.
+     * **3. İhlal (Strike 3):** Sunucudan kalıcı Yasaklama (Ban).
+     * *Not: Kanal/Rol silme veya Mass Ban gibi kritik suçlarda strike beklemeden anında Ban uygulanır!*
+3. **Snapshot Yedekleme Motoru:**
+   * Bot her 30 dakikada bir tüm kanalları (özel izinleri/overwrites dahil) ve rolleri yedekler. Silinen bir varlık olursa anında bu yedekten geri yüklenir.
+4. **Sıfır Çökme Kalkanı (Zero-Crash Boundary):**
+   * Discord API'den gelebilecek `50013` (Yetki Yetersiz), `10008` (Mesaj Bulunamadı), `429` (Rate Limit) gibi hatalar `safeExecute` katmanıyla güvenle yutulur ve bot asla çökmez.
+5. **Bellek Sızıntısı Önleyici (Cache Sweeper):**
+   * Bellekteki geçici spam haritaları her 5 dakikada bir temizlenir, bot aylarca açık kalsa dahi RAM kullanımı stabil kalır.
 
-2. **Discord Developer Portal Ayarları**:
-   * Botunuzun **Privileged Gateway Intents** sayfasından:
-     * ✅ **Server Members Intent**
-     * ✅ **Message Content Intent**
-     seçeneklerini **AÇIK (Enabled)** konuma getirin.
+---
 
-3. **Sunucu Rol Hiyerarşisi (ÇOK ÖNEMLİ)**:
-   * Discord Sunucu Ayarları > Roller sekmesinde, **Güvenlik Botunun Rolünü en üst sıraya taşıyın**. Bot, kendisinden üstte veya eşit seviyedeki rolleri yönetemez.
+## 🎮 Discord Slash Komutları
 
-4. **Botu Başlatın**:
-   ```bash
-   npm start
-   ```
+Yöneticiler ve whitelist roller Discord içinden botun hafızasını canlı sorgulayabilir:
+
+* `/guvenlik-durum`: Hafıza motoru durumunu, RAM kullanımını, engellenen saldırı sayısını ve bot sağlığını gösterir.
+* `/sabika-sorgula <kullanici>`: Seçilen kullanıcının geçmişteki ihlallerini, strike sayısını ve aldığı cezaları döker.
+* `/son-olaylar`: Veritabanındaki son 10 güvenlik olayını ve uygulanan önlemleri listeler.
+
+---
+
+## ⚙️ Değişkenler (.env / Railway Variables)
+
+```env
+BOT_TOKEN=YOUR_BOT_TOKEN
+GUILD_ID=YOUR_SERVER_ID
+GİLD_İD=YOUR_SERVER_ID
+OWNER_ID=YOUR_DISCORD_USER_ID
+SECURITY_LOG_CHANNEL_ID=YOUR_SECURITY_LOG_CHANNEL_ID
+DATA_DIR=/app/data
+QUARANTINE_ROLE_ID=
+```

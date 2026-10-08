@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 
 module.exports = {
   // Sunucu ID (GİLD_İD / GUILD_ID)
@@ -15,6 +16,10 @@ module.exports = {
 
   // Karantina Rolü ID (İhlal yapanların atanacağı rol - opsiyonel)
   quarantineRoleId: process.env.QUARANTINE_ROLE_ID || '',
+
+  // RAILWAY & KALICI DEPOLAMA (VOLUME) DİZİNİ
+  // Railway Persistent Volume kullanıldığında '/app/data' olarak bağlanır.
+  dataDir: process.env.DATA_DIR || path.join(__dirname, 'data'),
 
   // MUAF TUTULACAK (WHITELIST) ROLLER
   whitelistedRoles: [
@@ -43,7 +48,7 @@ module.exports = {
   // GÜVENLİK VE LİMİT AYARLARI (LIMITS & THRESHOLDS)
   limits: {
     // Kanal Koruması
-    channelDeleteLimit: 1, // İzin verilen silme sayısı (1 üzeri anında ceza)
+    channelDeleteLimit: 1,
     channelCreateLimit: 2,
 
     // Rol Koruması
@@ -66,9 +71,24 @@ module.exports = {
     timeoutDurationMinutes: 10 // Ceza susturma süresi (dakika)
   },
 
-  // OTOMATİK YEDEKLEME AYARLARI
+  // KADEMELİ CEZA SİSTEMİ (ESCALATING PENALTIES)
+  escalatingPenalties: {
+    enabled: true,
+    strike1: 'timeout',    // 1. İhlal: Timeout (Susturma)
+    strike2: 'quarantine', // 2. İhlal: Rollerin alınması ve Karantinaya atma
+    strike3: 'ban'         // 3. İhlal: Sunucudan kalıcı Yasaklama (Ban)
+  },
+
+  // OTOMATİK YEDEKLEME VE HAFIZA AYARLARI
   backup: {
     autoBackupIntervalMinutes: 30, // 30 dakikada bir otomatik kanal/rol yedeği
     restoreOnDelete: true          // Silinen kanal veya rolü anında yeniden oluştur
+  },
+
+  // HATA DAYANIKLILIĞI VE ÇÖKMEYİ ÖNLEME (ZERO-CRASH FAULT TOLERANCE)
+  resilience: {
+    maxRetries: 3,
+    retryDelayMs: 1000,
+    suppressExpectedDiscordErrors: true // 50013, 10008 gibi beklenen API hatalarını yut ve logla
   }
 };

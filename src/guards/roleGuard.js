@@ -4,6 +4,7 @@ const { getLatestAuditLog } = require('../utils/audit');
 const { punishUser } = require('../utils/punisher');
 const { restoreRole } = require('../utils/backup');
 const { sendSecurityLog } = require('../utils/logger');
+const { safeExecute } = require('../utils/safeExecute');
 const config = require('../../config');
 
 const DANGEROUS_PERMISSIONS = [
@@ -34,8 +35,11 @@ module.exports = function roleGuard(client) {
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz rol silindi: @${role.name} by ${executor.tag}`);
 
-    // Cezalandır
-    await punishUser(guild, executor, `Yetkisiz rol silme eylemi: @${role.name}`, { ban: true });
+    // Cezalandır & Hafızaya Yaz
+    await punishUser(guild, executor, `Yetkisiz rol silme eylemi: @${role.name}`, {
+      ban: true,
+      eventType: 'ROLE_DELETE'
+    });
 
     // Rolü Yeniden Oluştur
     if (config.backup.restoreOnDelete) {
@@ -44,13 +48,13 @@ module.exports = function roleGuard(client) {
 
     await sendSecurityLog(guild, {
       title: '🚨 ROL SİLME SALDIRISI ENGELLENDİ',
-      description: `Yetkisiz bir kullanıcı rol sildi! Kullanıcı cezalandırıldı ve rol geri yükleniyor.`,
+      description: `Yetkisiz bir kullanıcı rol sildi! Olay hafızaya kaydedildi, saldırgan cezalandırıldı ve rol geri yüklendi.`,
       severity: 'CRITICAL',
       executor: executor,
       fields: [
         { name: 'Silinen Rol', value: `\`@${role.name}\` (\`${role.id}\`)`, inline: true },
         { name: 'Rol Rengi', value: `${role.hexColor}`, inline: true },
-        { name: 'Alınan Önlem', value: 'Saldırgan yasaklandı / yetkileri çekildi, rol yeniden açıldı.', inline: false }
+        { name: 'Alınan Önlem', value: 'Saldırgan yasaklandı, rol yeniden açıldı.', inline: false }
       ]
     });
   });
@@ -68,11 +72,14 @@ module.exports = function roleGuard(client) {
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz rol oluşturuldu: @${role.name} by ${executor.tag}`);
 
-    // İzinsiz açılan rolü hemen sil
-    await role.delete('[Piyader RP Güvenlik] Yetkisiz rol açma engellendi').catch(() => null);
+    // İzinsiz açılan rolü hemen güvenle sil
+    await safeExecute(() => role.delete('[Piyader RP Güvenlik] Yetkisiz rol açma engellendi'), 'Delete Unauthorized Role');
 
     // Cezalandır
-    await punishUser(guild, executor, `Yetkisiz rol oluşturma eylemi: @${role.name}`, { timeout: true });
+    await punishUser(guild, executor, `Yetkisiz rol oluşturma eylemi: @${role.name}`, {
+      timeout: true,
+      eventType: 'ROLE_CREATE'
+    });
 
     await sendSecurityLog(guild, {
       title: '⚠️ İZİNSİZ ROL OLUŞTURMA ENGELLENDİ',
@@ -99,22 +106,17 @@ module.exports = function roleGuard(client) {
     // Tehlikeli izin eklenmiş mi kontrolü
     const hadDangerous = DANGEROUS_PERMISSIONS.some(perm => oldRole.permissions.has(perm));
     const nowHasDangerous = DANGEROUS_PERMISSIONS.some(perm => newRole.permissions.has(perm));
-
     const permissionEscalated = !hadDangerous && nowHasDangerous;
 
-    // Rolü eski ayarlarına çek
-    try {
-      await newRole.edit({
-        name: oldRole.name,
-        color: oldRole.color,
-        hoist: oldRole.hoist,
-        permissions: oldRole.permissions,
-        mentionable: oldRole.mentionable,
-        reason: '[Piyader RP Güvenlik] Yetkisiz rol düzenlemesi geri alındı'
-      });
-    } catch (err) {
-      console.error('[Rol Geri Alma Hatası]', err.message);
-    }
+    // Rolü eski ayarlarına güvenle çek
+    await safeExecute(() => newRole.edit({
+      name: oldRole.name,
+      color: oldRole.color,
+      hoist: oldRole.hoist,
+      permissions: oldRole.permissions,
+      mentionable: oldRole.mentionable,
+      reason: '[Piyader RP Güvenlik] Yetkisiz rol düzenlemesi geri alındı'
+    }), 'Revert Role Edits');
 
     const reason = permissionEscalated
       ? `Yetkisiz TEHLİKELİ İZİN yükseltme girişimi: @${newRole.name}`
@@ -122,13 +124,14 @@ module.exports = function roleGuard(client) {
 
     await punishUser(guild, executor, reason, {
       ban: permissionEscalated,
-      timeout: true
+      timeout: true,
+      eventType: permissionEscalated ? 'PERMISSION_ESCALATION' : 'ROLE_UPDATE'
     });
 
     await sendSecurityLog(guild, {
-      title: permissionEscalated ? '🚨 YETKİ GASPI (PERMISSION ESCALATION) ENGELLENDİ' : '⚠️ İZİNSİZ ROL DÜZENLEMESİ ENGELLENDİ',
+      title: permissionEscalated ? '🚨 YETKİ GASPI ENGELLENDİ' : '⚠️ İZİNSİZ ROL DÜZENLEMESİ ENGELLENDİ',
       description: permissionEscalated
-        ? `Bir kullanıcı role TEHLİKELİ YÖNETİCİ izinleri vermeye çalıştı! İzinler sıfırlandı ve kullanıcı cezalandırıldı.`
+        ? `Bir kullanıcı role TEHLİKELİ YÖNETİCİ izinleri vermeye çalıştı! İzinler sıfırlandı ve saldırgan yasaklandı.`
         : `Bir kullanıcı rol ayarlarını izinsiz değiştirdi. Rol eski haline getirildi.`,
       severity: permissionEscalated ? 'CRITICAL' : 'WARNING',
       executor: executor,

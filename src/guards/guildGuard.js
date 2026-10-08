@@ -3,6 +3,7 @@ const { isWhitelisted } = require('../utils/whitelist');
 const { getLatestAuditLog } = require('../utils/audit');
 const { punishUser } = require('../utils/punisher');
 const { sendSecurityLog } = require('../utils/logger');
+const { safeExecute } = require('../utils/safeExecute');
 const config = require('../../config');
 
 /**
@@ -21,8 +22,8 @@ module.exports = function guildGuard(client) {
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz sunucu ayarı değiştirildi by ${executor.tag}`);
 
-    // Ayarları eski haline döndür
-    try {
+    // Ayarları eski haline güvenle döndür
+    await safeExecute(async () => {
       if (oldGuild.name !== newGuild.name) {
         await newGuild.setName(oldGuild.name, '[Piyader RP Güvenlik] Yetkisiz sunucu adı değişikliği geri alındı');
       }
@@ -32,16 +33,17 @@ module.exports = function guildGuard(client) {
       if (oldGuild.banner !== newGuild.banner) {
         await newGuild.setBanner(oldGuild.bannerURL(), '[Piyader RP Güvenlik] Yetkisiz banner değişikliği geri alındı');
       }
-    } catch (err) {
-      console.error('[Sunucu Ayarı Geri Alma Hatası]', err.message);
-    }
+    }, 'Revert Guild Settings');
 
-    // Cezalandır
-    await punishUser(newGuild, executor, `Yetkisiz sunucu ayarları düzenleme eylemi`, { ban: true });
+    // Cezalandır & Hafızaya Yaz
+    await punishUser(newGuild, executor, `Yetkisiz sunucu ayarları düzenleme eylemi`, {
+      ban: true,
+      eventType: 'GUILD_SETTINGS_MODIFIED'
+    });
 
     await sendSecurityLog(newGuild, {
       title: '🚨 SUNUCU AYARLARI TAHRİFATI ENGELLENDİ',
-      description: `Yetkisiz bir kullanıcı sunucu adı/ikonu gibi kritik ayarları değiştirmeye çalıştı. Değişiklikler geri alındı ve saldırgan yasaklandı.`,
+      description: `Yetkisiz kullanıcı kritik sunucu ayarlarını değiştirmeye çalıştı. Değişiklikler geri alındı ve saldırgan yasaklandı.`,
       severity: 'CRITICAL',
       executor: executor,
       fields: [

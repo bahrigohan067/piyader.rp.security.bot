@@ -2,6 +2,11 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Partials, ActivityType } = require('discord.js');
 const config = require('../config');
 
+// Kalıcı Hafıza Motoru
+const { initDatabase } = require('./memory/db');
+const { startCacheSweeper } = require('./utils/cacheSweeper');
+const { registerSecurityCommands } = require('./commands/securityCommands');
+
 // Güvenlik Modülleri
 const channelGuard = require('./guards/channelGuard');
 const roleGuard = require('./guards/roleGuard');
@@ -16,7 +21,10 @@ const chatGuard = require('./guards/chatGuard');
 // Yardımcı Araçlar
 const { takeFullBackup } = require('./utils/backup');
 
-// Discord İstemcisi Yapılandırması
+// 1. Kalıcı Hafıza Veritabanını Başlat (SQLite WAL / Railway Persistent Volume)
+initDatabase();
+
+// 2. Discord İstemcisi Yapılandırması
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -40,10 +48,11 @@ const client = new Client({
 // Bot Hazır Olduğunda
 client.once('ready', async () => {
   console.log('====================================================');
-  console.log(`🛡️  PİYADER RP GÜVENLİK SİSTEMİ BAŞLATILDI`);
-  console.log(`🤖  Bot Kullanıcı: ${client.user.tag} (${client.user.id})`);
-  console.log(`🎯  Hedef Sunucu ID (GİLD_İD): ${config.guildId || 'Tüm Sunucular'}`);
-  console.log(`👑  Korumalardan Muaf Rol Sayısı: ${config.whitelistedRoles.length}`);
+  console.log(`🛡️  PİYADER RP ZERO-CRASH GÜVENLİK SİSTEMİ AKTİF`);
+  console.log(`🤖  Bot: ${client.user.tag} (${client.user.id})`);
+  console.log(`🎯  Hedef Sunucu ID: ${config.guildId || 'Tüm Sunucular'}`);
+  console.log(`📁  Kalıcı Depolama (Volume): ${config.dataDir}`);
+  console.log(`👑  Muaf Rol Sayısı: ${config.whitelistedRoles.length}`);
   console.log('====================================================');
 
   client.user.setPresence({
@@ -51,22 +60,25 @@ client.once('ready', async () => {
     status: 'dnd'
   });
 
-  // Hedef sunucuyu bul ve ilk tam yedeği al
+  // Hedef sunucuyu doğrula ve ilk anlık görüntüyü al
   if (config.guildId) {
     const targetGuild = client.guilds.cache.get(config.guildId);
     if (targetGuild) {
-      console.log(`[Sunucu Doğrulandı] "${targetGuild.name}" için ilk anlık görüntü (snapshot) alınıyor...`);
+      console.log(`[Sunucu Doğrulandı] "${targetGuild.name}" için ilk anlık görüntü hafızaya yazılıyor...`);
       await takeFullBackup(targetGuild);
 
-      // Belirlenen aralıklarla otomatik periyodik yedekleme
+      // Otomatik periyodik yedekleme
       const intervalMs = (config.backup.autoBackupIntervalMinutes || 30) * 60 * 1000;
       setInterval(() => {
         takeFullBackup(targetGuild);
       }, intervalMs);
     } else {
-      console.warn(`[UYARI] Bot, "${config.guildId}" ID'li sunucuda bulunamadı! Lütfen botu sunucuya davet edin.`);
+      console.warn(`[UYARI] Bot "${config.guildId}" ID'li sunucuda bulunamadı! Lütfen botu sunucuya ekleyin.`);
     }
   }
+
+  // Bellek Sızıntısı Temizleyicisini Başlat
+  startCacheSweeper([chatGuard.userMessageMap]);
 });
 
 // Koruma Modüllerini Başlat
@@ -80,18 +92,31 @@ emojiGuard(client);
 raidGuard(client);
 chatGuard(client);
 
-// Hata Yakalama (Botun çökmesini önleme)
+// Slash Komutlarını Kaydet
+registerSecurityCommands(client);
+
+// Sıfır Çökme (Zero-Crash) ve Hata Yakalama Kalkanı
 process.on('unhandledRejection', error => {
-  console.error('[Yakalanamayan Promise Hatası]', error);
+  console.error('[GÜVENLİ YAKALAMA - Unhandled Rejection]', error ? (error.stack || error.message || error) : 'Bilinmeyen Hata');
 });
 
 process.on('uncaughtException', error => {
-  console.error('[Yakalanamayan İstisna]', error);
+  console.error('[GÜVENLİ YAKALAMA - Uncaught Exception]', error ? (error.stack || error.message || error) : 'Bilinmeyen İstisna');
 });
 
-// Botu Başlat
+process.on('SIGTERM', () => {
+  console.log('[SIGTERM Alındı] Güvenli kapatma gerçekleştiriliyor...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('[SIGINT Alındı] Güvenli kapatma gerçekleştiriliyor...');
+  process.exit(0);
+});
+
+// Bot Girişi
 if (!config.token) {
-  console.error('❌ HATA: BOT_TOKEN tanımlanmamış! Lütfen .env dosyanızı kontrol ediniz.');
+  console.error('❌ HATA: BOT_TOKEN tanımlanmamış! Lütfen .env dosyanızı veya Railway Variables ayarlarınızı kontrol ediniz.');
 } else {
   client.login(config.token).catch(err => {
     console.error('❌ Bot Giriş Hatası:', err.message);

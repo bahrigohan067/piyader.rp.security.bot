@@ -1,22 +1,25 @@
 const fs = require('fs');
 const path = require('path');
-const { ChannelType, PermissionFlagsBits } = require('discord.js');
+const { ChannelType } = require('discord.js');
+const config = require('../../config');
+const { saveSnapshot, getLatestSnapshot } = require('../memory/memoryManager');
+const { safeExecute } = require('./safeExecute');
 
-const BACKUP_DIR = path.join(__dirname, '../../data/backups');
-
-function ensureBackupDir() {
-  if (!fs.existsSync(BACKUP_DIR)) {
-    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+function getBackupDir() {
+  const dir = path.join(path.resolve(config.dataDir), 'backups');
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
   }
+  return dir;
 }
 
 /**
- * Sunucudaki tüm kanalların ve rollerin tam yedeğini alır.
+ * Sunucudaki tüm kanalların ve rollerin tam yedeğini alır ve hem SQLite hafızasına hem diske kaydeder.
  * @param {import('discord.js').Guild} guild
  */
 async function takeFullBackup(guild) {
   try {
-    ensureBackupDir();
+    const backupDir = getBackupDir();
 
     // 1. Rolleri Yedekle
     const rolesData = [];
@@ -59,30 +62,38 @@ async function takeFullBackup(guild) {
       });
     });
 
-    fs.writeFileSync(path.join(BACKUP_DIR, 'roles.json'), JSON.stringify(rolesData, null, 2), 'utf8');
-    fs.writeFileSync(path.join(BACKUP_DIR, 'channels.json'), JSON.stringify(channelsData, null, 2), 'utf8');
+    // Kalıcı Hafıza Motoruna (SQLite) Kaydet
+    saveSnapshot(guild.id, 'ROLES', rolesData);
+    saveSnapshot(guild.id, 'CHANNELS', channelsData);
 
-    console.log(`[Yedekleme Tamamlandı] ${rolesData.length} rol ve ${channelsData.length} kanal başarıyla arşivlendi.`);
+    // Atomik JSON Yedek Dosyaları
+    fs.writeFileSync(path.join(backupDir, 'roles.json'), JSON.stringify(rolesData, null, 2), 'utf8');
+    fs.writeFileSync(path.join(backupDir, 'channels.json'), JSON.stringify(channelsData, null, 2), 'utf8');
+
+    console.log(`[HAFIZA & YEDEKLEME TAMAMLANDI] ${rolesData.length} rol ve ${channelsData.length} kanal arşivlendi.`);
   } catch (error) {
     console.error('[takeFullBackup Hatası]', error);
   }
 }
 
 /**
- * Silinen bir kanalı yedeğinden bulup geri oluşturur.
+ * Silinen bir kanalı yedeğinden bulup güvenle geri oluşturur.
  * @param {import('discord.js').Guild} guild
  * @param {string} channelId
  * @param {import('discord.js').GuildChannel} [fallbackChannel]
  */
 async function restoreChannel(guild, channelId, fallbackChannel = null) {
   try {
-    const filePath = path.join(BACKUP_DIR, 'channels.json');
-    let channelBackup = null;
+    let channels = getLatestSnapshot(guild.id, 'CHANNELS');
 
-    if (fs.existsSync(filePath)) {
-      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      channelBackup = data.find(c => c.id === channelId);
+    if (!channels) {
+      const filePath = path.join(getBackupDir(), 'channels.json');
+      if (fs.existsSync(filePath)) {
+        channels = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      }
     }
+
+    const channelBackup = Array.isArray(channels) ? channels.find(c => c.id === channelId) : null;
 
     const name = channelBackup ? channelBackup.name : (fallbackChannel ? fallbackChannel.name : 'kurtarilan-kanal');
     const type = channelBackup ? channelBackup.type : (fallbackChannel ? fallbackChannel.type : ChannelType.GuildText);
@@ -108,9 +119,16 @@ async function restoreChannel(guild, channelId, fallbackChannel = null) {
       }));
     }
 
-    const restoredChannel = await guild.channels.create(options);
-    console.log(`[Kanal Geri Yüklendi] #${name} (${restoredChannel.id})`);
-    return restoredChannel;
+    const result = await safeExecute(
+      () => guild.channels.create(options),
+      `Restore Channel (#${name})`
+    );
+
+    if (result.success) {
+      console.log(`[KANAL GERİ YÜKLENDİ] #${name} (${result.data.id})`);
+      return result.data;
+    }
+    return null;
   } catch (error) {
     console.error('[restoreChannel Hatası]', error);
     return null;
@@ -118,20 +136,23 @@ async function restoreChannel(guild, channelId, fallbackChannel = null) {
 }
 
 /**
- * Silinen bir rolü yedeğinden bulup geri oluşturur.
+ * Silinen bir rolü yedeğinden bulup güvenle geri oluşturur.
  * @param {import('discord.js').Guild} guild
  * @param {string} roleId
  * @param {import('discord.js').Role} [fallbackRole]
  */
 async function restoreRole(guild, roleId, fallbackRole = null) {
   try {
-    const filePath = path.join(BACKUP_DIR, 'roles.json');
-    let roleBackup = null;
+    let roles = getLatestSnapshot(guild.id, 'ROLES');
 
-    if (fs.existsSync(filePath)) {
-      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-      roleBackup = data.find(r => r.id === roleId);
+    if (!roles) {
+      const filePath = path.join(getBackupDir(), 'roles.json');
+      if (fs.existsSync(filePath)) {
+        roles = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      }
     }
+
+    const roleBackup = Array.isArray(roles) ? roles.find(r => r.id === roleId) : null;
 
     const name = roleBackup ? roleBackup.name : (fallbackRole ? fallbackRole.name : 'kurtarilan-rol');
     const color = roleBackup ? roleBackup.color : (fallbackRole ? fallbackRole.hexColor : '#99aab5');
@@ -139,17 +160,23 @@ async function restoreRole(guild, roleId, fallbackRole = null) {
     const mentionable = roleBackup ? roleBackup.mentionable : (fallbackRole ? fallbackRole.mentionable : false);
     const permissions = roleBackup ? BigInt(roleBackup.permissions) : (fallbackRole ? fallbackRole.permissions.bitfield : 0n);
 
-    const restoredRole = await guild.roles.create({
-      name,
-      color,
-      hoist,
-      mentionable,
-      permissions,
-      reason: '[Piyader RP Güvenlik] Yetkisiz silinen rol otomatik geri yüklendi'
-    });
+    const result = await safeExecute(
+      () => guild.roles.create({
+        name,
+        color,
+        hoist,
+        mentionable,
+        permissions,
+        reason: '[Piyader RP Güvenlik] Yetkisiz silinen rol otomatik geri yüklendi'
+      }),
+      `Restore Role (@${name})`
+    );
 
-    console.log(`[Rol Geri Yüklendi] @${name} (${restoredRole.id})`);
-    return restoredRole;
+    if (result.success) {
+      console.log(`[ROL GERİ YÜKLENDİ] @${name} (${result.data.id})`);
+      return result.data;
+    }
+    return null;
   } catch (error) {
     console.error('[restoreRole Hatası]', error);
     return null;

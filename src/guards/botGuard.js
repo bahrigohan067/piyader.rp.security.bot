@@ -3,6 +3,7 @@ const { isWhitelisted, isBotWhitelisted } = require('../utils/whitelist');
 const { getLatestAuditLog } = require('../utils/audit');
 const { punishUser } = require('../utils/punisher');
 const { sendSecurityLog } = require('../utils/logger');
+const { safeExecute } = require('../utils/safeExecute');
 const config = require('../../config');
 
 /**
@@ -34,25 +35,29 @@ module.exports = function botGuard(client) {
 
     console.warn(`[GÜVENLİK İHLALİ] İzinsiz bot eklendi: ${member.user.tag}`);
 
-    // 1. Eklenen botu anında yasakla
-    await member.ban({ reason: '[Piyader RP Güvenlik] İzinsiz bot girişi engellendi' }).catch(err => {
-      console.error('[Bot Ban Hatası]', err.message);
-    });
+    // 1. Eklenen botu anında güvenle yasakla
+    await safeExecute(
+      () => member.ban({ reason: '[Piyader RP Güvenlik] İzinsiz bot girişi engellendi' }),
+      `Ban Malicious Bot (${member.id})`
+    );
 
-    // 2. Botu ekleyen kullanıcıyı cezalandır
+    // 2. Botu ekleyen kullanıcıyı cezalandır & Hafızaya Yaz
     if (executor) {
-      await punishUser(guild, executor, `İzinsiz bot ekleme eylemi: ${member.user.tag}`, { ban: true });
+      await punishUser(guild, executor, `İzinsiz bot ekleme eylemi: ${member.user.tag}`, {
+        ban: true,
+        eventType: 'MALICIOUS_BOT_INJECTION'
+      });
     }
 
     await sendSecurityLog(guild, {
       title: '🚨 İZİNSİZ BOT GİRİŞİ ENGELLENDİ',
-      description: `Sunucuya izinsiz bir bot eklenmeye çalışıldı! Bot yasaklandı ve ekleyen yetkili cezalandırıldı.`,
+      description: `Sunucuya izinsiz bir bot eklendi! Bot anında yasaklandı ve ekleyen yetkili cezalandırıldı.`,
       severity: 'CRITICAL',
       executor: executor,
       fields: [
         { name: 'Engellenen Bot', value: `${member.user.tag} (\`${member.id}\`)`, inline: true },
         { name: 'Botu Ekleyen', value: executor ? `<@${executor.id}> (\`${executor.tag}\`)` : 'Tespit edilemedi', inline: true },
-        { name: 'Alınan Önlem', value: 'Bot anında banlandı, ekleyen kişinin tüm yetkileri feshedildi.', inline: false }
+        { name: 'Alınan Önlem', value: 'Bot derhal banlandı, ekleyen kişinin tüm yetkileri feshedildi.', inline: false }
       ]
     });
   });

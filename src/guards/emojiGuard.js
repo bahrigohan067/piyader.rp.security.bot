@@ -23,8 +23,11 @@ module.exports = function emojiGuard(client) {
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz emoji silindi: :${emoji.name}: by ${executor.tag}`);
 
-    // Cezalandır
-    await punishUser(guild, executor, `Yetkisiz emoji silme eylemi: :${emoji.name}:`, { timeout: true });
+    // Cezalandır & Hafızaya Yaz
+    await punishUser(guild, executor, `Yetkisiz emoji silme eylemi: :${emoji.name}:`, {
+      timeout: true,
+      eventType: 'EMOJI_DELETE'
+    });
 
     await sendSecurityLog(guild, {
       title: '⚠️ EMOJİ SİLME EYLEMİ ENGELLENDİ',
@@ -50,8 +53,11 @@ module.exports = function emojiGuard(client) {
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz sticker silindi: ${sticker.name} by ${executor.tag}`);
 
-    // Cezalandır
-    await punishUser(guild, executor, `Yetkisiz çıkartma (sticker) silme eylemi: ${sticker.name}`, { timeout: true });
+    // Cezalandır & Hafızaya Yaz
+    await punishUser(guild, executor, `Yetkisiz çıkartma (sticker) silme eylemi: ${sticker.name}`, {
+      timeout: true,
+      eventType: 'STICKER_DELETE'
+    });
 
     await sendSecurityLog(guild, {
       title: '⚠️ STICKER SİLME EYLEMİ ENGELLENDİ',
