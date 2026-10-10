@@ -22,7 +22,7 @@ module.exports = function channelGuard(client) {
     if (!entry || !entry.executor) return;
 
     const executor = entry.executor;
-    if (isWhitelisted(executor, guild)) return;
+    if (await isWhitelisted(executor, guild)) return;
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz kanal silindi: #${channel.name} by ${executor.tag}`);
 
@@ -59,7 +59,7 @@ module.exports = function channelGuard(client) {
     if (!entry || !entry.executor) return;
 
     const executor = entry.executor;
-    if (isWhitelisted(executor, guild)) return;
+    if (await isWhitelisted(executor, guild)) return;
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz kanal açıldı: #${channel.name} by ${executor.tag}`);
 
@@ -93,7 +93,7 @@ module.exports = function channelGuard(client) {
     if (!entry || !entry.executor) return;
 
     const executor = entry.executor;
-    if (isWhitelisted(executor, guild)) return;
+    if (await isWhitelisted(executor, guild)) return;
 
     // Kanaldaki değişiklikleri geri al
     await safeExecute(() => newChannel.edit({

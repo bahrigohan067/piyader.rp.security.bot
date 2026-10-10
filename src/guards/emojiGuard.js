@@ -19,7 +19,7 @@ module.exports = function emojiGuard(client) {
     if (!entry || !entry.executor) return;
 
     const executor = entry.executor;
-    if (isWhitelisted(executor, guild)) return;
+    if (await isWhitelisted(executor, guild)) return;
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz emoji silindi: :${emoji.name}: by ${executor.tag}`);
 
@@ -49,7 +49,7 @@ module.exports = function emojiGuard(client) {
     if (!entry || !entry.executor) return;
 
     const executor = entry.executor;
-    if (isWhitelisted(executor, guild)) return;
+    if (await isWhitelisted(executor, guild)) return;
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz sticker silindi: ${sticker.name} by ${executor.tag}`);
 

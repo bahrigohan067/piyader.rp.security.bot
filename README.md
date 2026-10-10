@@ -21,6 +21,15 @@ Aşağıdaki roller bütün koruma ve limit kurallarından otomatik olarak **tam
 
 *Not: Sunucu sahibi (`guild.ownerId`), botun kendisi ve `.env` dosyasındaki `OWNER_ID` her zaman tam dokunulmazlığa sahiptir.*
 
+### 🤖 Ekosistem Botları (Mutual Denial of Service / Suicide Loop Koruması)
+Piyade RP bünyesindeki diğer botların moderasyon (`/ban`, `/kick`) veya bilet açma işlemleri sırasında Güvenlik Botu ile çarpışmaması ve yanlışlıkla banlanmaması için `.env` ve `config.js` dosyalarında doğrudan tanımlanmıştır:
+* `PIYADE_BOT_ID`: Ana Moderasyon Botu (`piyade.rp.bot`)
+* `AI_BOT_ID`: Yapay Zeka Botu (`piyade.rp.yapay.zeka.bot`)
+* `MUSIC_BOT_ID`: Müzik Botu (`piyade.rp.music.bot`)
+* `BOT_1_ID`: Oyun & ER:LC Botu (`piyade.rp.bot.1`)
+* `REHBER_BOT_ID`: Rehber Botu (`piyade.rp.bot.rehber`)
+* *(Ayrıca bu botlar `@Sunucu Botu` veya `@BOTS` rolü taşıdığında da dinamik olarak otomatik korunur).*
+
 ---
 
 ## 🚂 Railway Üzerinde Kalıcı Veri Dosyası (Volume) Nasıl Oluşturulur?

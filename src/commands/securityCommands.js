@@ -49,7 +49,7 @@ async function registerSecurityCommands(client) {
     if (config.guildId && interaction.guildId !== config.guildId) return;
 
     // Yetki kontrolü (Yönetici veya Whitelist rolü)
-    if (!isWhitelisted(interaction.member, interaction.guild) && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    if (!(await isWhitelisted(interaction.member, interaction.guild)) && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
       return interaction.reply({
         content: '❌ Bu güvenlik komutunu kullanmaya yetkiniz bulunmamaktadır.',
         ephemeral: true

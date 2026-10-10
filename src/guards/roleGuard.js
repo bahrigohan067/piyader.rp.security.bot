@@ -31,7 +31,7 @@ module.exports = function roleGuard(client) {
     if (!entry || !entry.executor) return;
 
     const executor = entry.executor;
-    if (isWhitelisted(executor, guild)) return;
+    if (await isWhitelisted(executor, guild)) return;
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz rol silindi: @${role.name} by ${executor.tag}`);
 
@@ -68,7 +68,7 @@ module.exports = function roleGuard(client) {
     if (!entry || !entry.executor) return;
 
     const executor = entry.executor;
-    if (isWhitelisted(executor, guild)) return;
+    if (await isWhitelisted(executor, guild)) return;
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz rol oluşturuldu: @${role.name} by ${executor.tag}`);
 
@@ -101,7 +101,7 @@ module.exports = function roleGuard(client) {
     if (!entry || !entry.executor) return;
 
     const executor = entry.executor;
-    if (isWhitelisted(executor, guild)) return;
+    if (await isWhitelisted(executor, guild)) return;
 
     // Tehlikeli izin eklenmiş mi kontrolü
     const hadDangerous = DANGEROUS_PERMISSIONS.some(perm => oldRole.permissions.has(perm));

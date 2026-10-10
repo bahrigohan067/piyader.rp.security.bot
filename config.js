@@ -39,11 +39,15 @@ module.exports = {
     .map(id => id.trim())
     .filter(Boolean),
 
-  // Güvenli Bot ID'leri (Bot ekleme korumasında izinli botlar)
-  whitelistedBots: (process.env.WHITELIST_BOTS || '')
-    .split(',')
-    .map(id => id.trim())
-    .filter(Boolean),
+  // Güvenli Bot ID'leri (Piyade RP Ekosistemindeki Botlar: piyade.rp.bot, müzik, yapay zeka vb.)
+  whitelistedBots: [
+    ...(process.env.WHITELIST_BOTS || '').split(',').map(id => id.trim()).filter(Boolean),
+    process.env.PIYADE_BOT_ID || '',
+    process.env.AI_BOT_ID || '',
+    process.env.MUSIC_BOT_ID || '',
+    process.env.BOT_1_ID || '',
+    process.env.REHBER_BOT_ID || ''
+  ].filter(Boolean),
 
   // GÜVENLİK VE LİMİT AYARLARI (LIMITS & THRESHOLDS)
   limits: {

@@ -28,7 +28,7 @@ module.exports = function botGuard(client) {
     const executor = entry ? entry.executor : null;
 
     // Eğer ekleyen kişi whitelist'te ise izin ver
-    if (executor && isWhitelisted(executor, guild)) {
+    if (executor && (await isWhitelisted(executor, guild))) {
       console.log(`[Yetkili Bot Girişi] ${member.user.tag} botu yetkili (${executor.tag}) tarafından eklendi.`);
       return;
     }

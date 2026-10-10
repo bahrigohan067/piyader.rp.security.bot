@@ -20,7 +20,7 @@ module.exports = function memberGuard(client) {
     if (!entry || !entry.executor) return;
 
     const executor = entry.executor;
-    if (isWhitelisted(executor, guild)) return;
+    if (await isWhitelisted(executor, guild)) return;
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz ban atıldı: ${ban.user.tag} by ${executor.tag}`);
 
@@ -58,7 +58,7 @@ module.exports = function memberGuard(client) {
     if (!entry || !entry.executor) return;
 
     const executor = entry.executor;
-    if (isWhitelisted(executor, guild)) return;
+    if (await isWhitelisted(executor, guild)) return;
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz kick atıldı: ${member.user.tag} by ${executor.tag}`);
 

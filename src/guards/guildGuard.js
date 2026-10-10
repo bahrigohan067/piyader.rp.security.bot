@@ -18,7 +18,7 @@ module.exports = function guildGuard(client) {
     if (!entry || !entry.executor) return;
 
     const executor = entry.executor;
-    if (isWhitelisted(executor, newGuild)) return;
+    if (await isWhitelisted(executor, newGuild)) return;
 
     console.warn(`[GÜVENLİK İHLALİ] Yetkisiz sunucu ayarı değiştirildi by ${executor.tag}`);
 

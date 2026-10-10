@@ -8,6 +8,9 @@ const config = require('../../config');
 
 /**
  * Webhook Koruması Modülü (Webhook Guard)
+ * Discord Audit Log gecikmesi (Race Condition) ve kanal hedef kontrolü ile
+ * masum yetkililerin yanlışlıkla banlanması (False Positive) önlenmiştir.
+ * 
  * @param {import('discord.js').Client} client
  */
 module.exports = function webhookGuard(client) {
@@ -15,26 +18,44 @@ module.exports = function webhookGuard(client) {
     if (!channel.guild || (config.guildId && channel.guild.id !== config.guildId)) return;
     const guild = channel.guild;
 
-    const entry = await getLatestAuditLog(guild, AuditLogEvent.WebhookCreate);
+    // 1. Audit Log sorgusu: 800ms gecikme ile logun yazılmasını bekle ve
+    // SADECE bu kanalda (channel.id) oluşturulan webhook logunu eşleştir.
+    const entry = await getLatestAuditLog(guild, AuditLogEvent.WebhookCreate, null, {
+      delayMs: 800,
+      maxAgeMs: 7000,
+      retries: 1,
+      customFilter: logEntry => {
+        const logChannelId = logEntry.extra?.channel?.id || logEntry.target?.channelId;
+        return logChannelId === channel.id;
+      }
+    });
+
+    // Kesin olarak bu kanalda yeni bir webhook logu bulunamadıysa işlem yapma (False Positive engeli)
     if (!entry || !entry.executor) return;
 
     const executor = entry.executor;
-    if (isWhitelisted(executor, guild)) return;
+    if (await isWhitelisted(executor, guild)) return;
 
-    console.warn(`[GÜVENLİK İHLALİ] İzinsiz webhook oluşturuldu: #${channel.name} by ${executor.tag}`);
+    const createdWebhookId = entry.target ? entry.target.id : null;
+    const webhookName = entry.target ? entry.target.name : 'Bilinmeyen Webhook';
 
-    // Kanaldaki webhook'ları bul ve izinsiz olanları güvenle sil
+    console.warn(`[GÜVENLİK İHLALİ] İzinsiz webhook oluşturuldu: #${channel.name} (${webhookName}) by ${executor.tag}`);
+
+    // 2. SADECE saldırganın açtığı veya bu olayda oluşturulan izinsiz webhook'u güvenle sil
     await safeExecute(async () => {
       const webhooks = await channel.fetchWebhooks();
       for (const webhook of webhooks.values()) {
-        if (webhook.owner && webhook.owner.id === executor.id) {
+        const isTargetWebhook = createdWebhookId && webhook.id === createdWebhookId;
+        const isOwnerExecutor = webhook.owner && webhook.owner.id === executor.id;
+
+        if (isTargetWebhook || isOwnerExecutor) {
           await webhook.delete('[Piyader RP Güvenlik] Yetkisiz webhook silindi');
         }
       }
     }, 'Delete Unauthorized Webhooks');
 
-    // Webhook açan kullanıcıyı cezalandır & Hafızaya Yaz
-    await punishUser(guild, executor, `Yetkisiz webhook oluşturma: #${channel.name}`, {
+    // 3. Webhook açan kullanıcıyı cezalandır & Hafızaya Yaz
+    await punishUser(guild, executor, `Yetkisiz webhook oluşturma: #${channel.name} (${webhookName})`, {
       timeout: true,
       eventType: 'WEBHOOK_INJECTION'
     });
@@ -46,7 +67,8 @@ module.exports = function webhookGuard(client) {
       executor: executor,
       fields: [
         { name: 'Kanal', value: `<#${channel.id}> (\`#${channel.name}\`)`, inline: true },
-        { name: 'Oluşturan', value: `<@${executor.id}> (\`${executor.tag}\`)`, inline: true },
+        { name: 'Oluşturulan Webhook', value: `\`${webhookName}\` (\`${createdWebhookId || 'ID Yok'}\`)`, inline: true },
+        { name: 'Oluşturan Saldırgan', value: `<@${executor.id}> (\`${executor.tag}\`)`, inline: true },
         { name: 'Alınan Önlem', value: 'Webhook imha edildi ve kullanıcının yetkileri kısıtlandı.', inline: false }
       ]
     });

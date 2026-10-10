@@ -25,7 +25,7 @@ function chatGuard(client) {
     const member = message.member;
 
     // Whitelist kontrolü
-    if (isWhitelisted(member || author, guild)) return;
+    if (await isWhitelisted(member || author, guild)) return;
 
     const now = Date.now();
     const content = message.content || '';
@@ -46,7 +46,7 @@ function chatGuard(client) {
     // 2. KİTLESEL ETİKET KORUMASI (Mass Mention / Mention Raid)
     const mentionCount = (message.mentions.users ? message.mentions.users.size : 0) +
                          (message.mentions.roles ? message.mentions.roles.size : 0);
-    const hasEveryone = content.includes('@everyone') || content.includes('@here');
+    const hasEveryone = Boolean(message.mentions.everyone);
 
     if (mentionCount >= config.limits.maxMentionsPerMessage || hasEveryone) {
       await safeExecute(() => message.delete(), 'Delete Mass Mention Message');
@@ -54,7 +54,9 @@ function chatGuard(client) {
       await punishUser(
         guild,
         author,
-        `Toplu etiket baskını (${mentionCount} etiket veya @everyone)`,
+        hasEveryone
+          ? 'Yetkisiz @everyone / @here kitlesel etiketleme'
+          : `Toplu etiket baskını (${mentionCount} etiket)`,
         { timeout: true, eventType: 'MASS_MENTION' }
       );
       return;
