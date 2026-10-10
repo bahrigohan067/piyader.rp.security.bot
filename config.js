@@ -2,8 +2,8 @@ require('dotenv').config();
 const path = require('path');
 
 module.exports = {
-  // Sunucu ID (GİLD_İD / GUILD_ID)
-  guildId: process.env.GUILD_ID || process.env.GİLD_İD || '',
+  // Sunucu ID (GİLD_İD / GILD_ID / GUILD_ID)
+  guildId: process.env.GUILD_ID || process.env.GİLD_İD || process.env.GILD_ID || '',
 
   // Bot Token
   token: process.env.BOT_TOKEN || '',
