@@ -5,17 +5,23 @@ const { punishUser } = require('../utils/punisher');
 const { restoreChannel } = require('../utils/backup');
 const { sendSecurityLog } = require('../utils/logger');
 const { safeExecute } = require('../utils/safeExecute');
-const { logEvent } = require('../memory/memoryManager');
 const config = require('../../config');
 
 /**
  * Kanal Koruması Modülü
+ * Bilet (ticket-) ve geçici kanallar muaf tutularak bot çatışması önlenmiştir.
  * @param {import('discord.js').Client} client
  */
 module.exports = function channelGuard(client) {
   // 1. KANAL SİLME KORUMASI
   client.on('channelDelete', async channel => {
     if (!channel.guild || (config.guildId && channel.guild.id !== config.guildId)) return;
+
+    // Bilet (ticket), VS ve geçici RP kanalları korumadan muaf tutulur
+    if (channel.name && (channel.name.startsWith('ticket-') || channel.name.startsWith('vs-') || channel.name.startsWith('bilet-'))) {
+      return;
+    }
+
     const guild = channel.guild;
 
     const entry = await getLatestAuditLog(guild, AuditLogEvent.ChannelDelete, channel.id);
@@ -53,6 +59,12 @@ module.exports = function channelGuard(client) {
   // 2. KANAL OLUŞTURMA KORUMASI
   client.on('channelCreate', async channel => {
     if (!channel.guild || (config.guildId && channel.guild.id !== config.guildId)) return;
+
+    // Bilet (ticket), VS ve geçici RP kanalları korumadan muaf tutulur
+    if (channel.name && (channel.name.startsWith('ticket-') || channel.name.startsWith('vs-') || channel.name.startsWith('bilet-'))) {
+      return;
+    }
+
     const guild = channel.guild;
 
     const entry = await getLatestAuditLog(guild, AuditLogEvent.ChannelCreate, channel.id);
@@ -87,6 +99,12 @@ module.exports = function channelGuard(client) {
   // 3. KANAL GÜNCELLEME KORUMASI (İsim, konu, izin değiştirme)
   client.on('channelUpdate', async (oldChannel, newChannel) => {
     if (!newChannel.guild || (config.guildId && newChannel.guild.id !== config.guildId)) return;
+
+    // Bilet ve geçici RP kanalları muaf
+    if (newChannel.name && (newChannel.name.startsWith('ticket-') || newChannel.name.startsWith('vs-') || newChannel.name.startsWith('bilet-'))) {
+      return;
+    }
+
     const guild = newChannel.guild;
 
     const entry = await getLatestAuditLog(guild, AuditLogEvent.ChannelUpdate, newChannel.id);

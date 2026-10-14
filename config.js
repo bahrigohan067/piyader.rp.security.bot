@@ -41,6 +41,9 @@ module.exports = {
 
   // Güvenli Bot ID'leri (Piyade RP Ekosistemindeki Botlar: piyade.rp.bot, müzik, yapay zeka vb.)
   whitelistedBots: [
+    '1544144846875267253', // Ana Bot (piyade.rp.bot)
+    '1557037486478467136', // Müzik Botu (piyade.rp.music.bot)
+    '1557030714518540301', // Sistem/Kontrol Botu (piyade.rp.bot.1)
     ...(process.env.WHITELIST_BOTS || '').split(',').map(id => id.trim()).filter(Boolean),
     process.env.PIYADE_BOT_ID || '',
     process.env.AI_BOT_ID || '',
