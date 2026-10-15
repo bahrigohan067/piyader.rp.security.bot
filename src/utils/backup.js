@@ -38,29 +38,38 @@ async function takeFullBackup(guild) {
 
     // 2. Kanalları Yedekle
     const channelsData = [];
-    guild.channels.cache.forEach(channel => {
-      const overwrites = [];
-      channel.permissionOverwrites.cache.forEach(ow => {
-        overwrites.push({
-          id: ow.id,
-          type: ow.type,
-          allow: ow.allow.bitfield.toString(),
-          deny: ow.deny.bitfield.toString()
+    if (guild.channels && guild.channels.cache) {
+      guild.channels.cache.forEach(channel => {
+        if (!channel) return;
+        // Konu/Thread kanallarını yedeklemeye dahil etme
+        if (channel.isThread && channel.isThread()) return;
+
+        const overwrites = [];
+        if (channel.permissionOverwrites && channel.permissionOverwrites.cache) {
+          channel.permissionOverwrites.cache.forEach(ow => {
+            if (!ow) return;
+            overwrites.push({
+              id: ow.id,
+              type: ow.type,
+              allow: ow.allow ? ow.allow.bitfield.toString() : '0',
+              deny: ow.deny ? ow.deny.bitfield.toString() : '0'
+            });
+          });
+        }
+
+        channelsData.push({
+          id: channel.id,
+          name: channel.name,
+          type: channel.type,
+          parentId: channel.parentId,
+          position: channel.position,
+          topic: channel.topic || null,
+          nsfw: Boolean(channel.nsfw),
+          rateLimitPerUser: channel.rateLimitPerUser || 0,
+          permissionOverwrites: overwrites
         });
       });
-
-      channelsData.push({
-        id: channel.id,
-        name: channel.name,
-        type: channel.type,
-        parentId: channel.parentId,
-        position: channel.position,
-        topic: channel.topic || null,
-        nsfw: channel.nsfw || false,
-        rateLimitPerUser: channel.rateLimitPerUser || 0,
-        permissionOverwrites: overwrites
-      });
-    });
+    }
 
     // Kalıcı Hafıza Motoruna (SQLite) Kaydet
     saveSnapshot(guild.id, 'ROLES', rolesData);

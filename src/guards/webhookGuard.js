@@ -1,4 +1,4 @@
-const { AuditLogEvent } = require('discord.js');
+const { AuditLogEvent, Events } = require('discord.js');
 const { isWhitelisted } = require('../utils/whitelist');
 const { getLatestAuditLog } = require('../utils/audit');
 const { punishUser } = require('../utils/punisher');
@@ -14,7 +14,7 @@ const config = require('../../config');
  * @param {import('discord.js').Client} client
  */
 module.exports = function webhookGuard(client) {
-  client.on('webhookUpdate', async channel => {
+  client.on(Events.WebhooksUpdate || 'webhooksUpdate', async channel => {
     if (!channel.guild || (config.guildId && channel.guild.id !== config.guildId)) return;
     const guild = channel.guild;
 

@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, Partials, ActivityType } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, ActivityType, Events } = require('discord.js');
 const config = require('../config');
 
 // Kalıcı Hafıza Motoru
@@ -46,7 +46,7 @@ const client = new Client({
 });
 
 // Bot Hazır Olduğunda
-client.once('ready', async () => {
+client.once(Events.ClientReady || 'ready', async () => {
   console.log('====================================================');
   console.log(`🛡️  PİYADER RP ZERO-CRASH GÜVENLİK SİSTEMİ AKTİF`);
   console.log(`🤖  Bot: ${client.user.tag} (${client.user.id})`);
