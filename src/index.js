@@ -78,7 +78,7 @@ client.once(Events.ClientReady || 'ready', async () => {
   }
 
   // Bellek Sızıntısı Temizleyicisini Başlat
-  startCacheSweeper([chatGuard.userMessageMap]);
+  startCacheSweeper([chatGuard.userMessageMap, memberGuard.executorRoleStrippingMap]);
 });
 
 // Koruma Modüllerini Başlat
